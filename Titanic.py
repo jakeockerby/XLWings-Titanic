@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 
 
+# Function to plot halos on top of bars
 def bar_labels(ax, space=0.8, fontsize=12):
     for p in ax.patches:
         x = p.get_x() + p.get_width() / 2 # Plotting at centre of bar
@@ -188,7 +189,7 @@ def main():
 
 
 
-
+# Function that builds a classification model
 def predictions():
     wb = xw.Book.caller()
     sheet = wb.sheets[0]
@@ -196,11 +197,17 @@ def predictions():
     loc = sheet["B29"].value
     export = sheet["B27"].value
     
+    # Getting original titanic dataset from the main() function
     titanic = main()
+    
+    # Drop name column as it is unnecessary
     titanic = titanic.drop('name', axis=1)
+    
+    # Convert 'sex' column to numeric
     titanic['sex'] = titanic['sex'].replace('male', 0)
     titanic['sex'] = titanic['sex'].replace('female', 1)
     
+    # Convert 'pclass' column to numeric
     titanic['pclass'] = titanic['pclass'].replace('1st', 0)
     titanic['pclass'] = titanic['pclass'].replace('2nd', 1)
     titanic['pclass'] = titanic['pclass'].replace('3rd', 2)
@@ -208,29 +215,39 @@ def predictions():
     # Filling NaN values with the mean age
     titanic['age'] = titanic['age'].fillna(int(round(titanic['age'].mean())))
     
-
+    # List of columns to train on
     training = ['pclass', 'age', 'sex']
     
     X = titanic[training].values
     y = titanic['survived'].values
     
+    # Splitting into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3,
                                        random_state=42)
     
+    # Using the TPOT classifier to find best model and hyperparameters
     tpot = TPOTClassifier(generations=10, verbosity=2,
                           random_state=42, n_jobs=-1)
+    
+    # Fitting on the training set
     tpot.fit(X_train, y_train)
     
+    # Printing the accuracy to excel
     sheet["{}".format(loc)].value = 'Training Accuracy:'
     sheet["{}".format(loc)].offset(0, 1).value = tpot.score(X_train, y_train)
     sheet["{}".format(loc)].offset(2, 0).value = 'Test Accuracy:'
     sheet["{}".format(loc)].offset(2, 1).value = tpot.score(X_test, y_test)
-
+    
+    # Predicting survival outcome for all 1313 people
     y_pred = tpot.predict(X)
-
+    
+    # Getting the confusion matrix
     mat = confusion_matrix(y, y_pred)
     
+    # Converting confusion matrix into a dataframe
     mat_df = pd.DataFrame(mat)
+    
+    # Plotting the confusion matrix
     fig, ax = plt.subplots()
     plt.imshow(mat_df, cmap="winter", interpolation='nearest')
     plt.axis('off')
@@ -240,7 +257,10 @@ def predictions():
                             ha="center", va="center", color="w")
     # Getting current time for filenames
     current_time = str(datetime.datetime.now().strftime("%H_%M_%S"))
+    
+    # Saving the confusion matrix in the user-inputted filepath
     plt.savefig('{0}confusion_matrix_{1}.png'.format(export, current_time))
+    
     
 # Function to clear the tables
 def clear():
